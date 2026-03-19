@@ -3766,7 +3766,7 @@ function _admRenderTenants() {
     const isPending = _admCurrentTab === 'pending';
     const actions = isPending
       ? `<button onclick="approveTenant('${t.user_id}',true)" style="background:#16a34a;color:#fff;border:none;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem;margin-right:.4rem">&#10003; Approve</button><button onclick="rejectTenant('${t.user_id}')" style="background:#fff;color:#dc2626;border:1.5px solid #dc2626;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem">&#10005; Reject</button>`
-      : `<button class="bsm bg2" onclick="toggleTenant('${t.user_id}',${!t.is_active})">${t.is_active?'Disable':'Enable'}</button> <button class="bsm bg2" onclick="exportTenant('${t.tenant_id}','${t.name}')">&#11015; Export</button>`;
+      : `<button class="bsm bg2" onclick="toggleTenant('${t.user_id}',${!t.is_active})">${t.is_active?'Disable':'Enable'}</button> <button class="bsm bg2" onclick="exportTenant('${t.tenant_id}','${t.name}')">&#11015; Export</button> <button style="background:#fff;color:#dc2626;border:1.5px solid #dc2626;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem" onclick="deleteTenant('${t.tenant_id}','${t.name}')">&#128465; Delete</button>`;
     const rowBg = i % 2 === 0 ? (isPending ? '#fffbeb' : '#f8fafc') : '#fff';
     const extraCell = isPending
       ? `<td style="padding:.8rem 1rem">${demoCell}</td>`
@@ -3871,6 +3871,15 @@ async function loadTenants() {
 async function approveTenant(uid,approve){try{await adminApi('PUT','/admin/tenants/'+uid+'/approve',{is_approved:approve});loadTenants();}catch(e){alert(e.message);}}
 async function rejectTenant(uid){const reason=prompt('Reason for rejection (optional):');try{await adminApi('PUT','/admin/tenants/'+uid+'/approve',{is_approved:false,rejection_reason:reason||null});loadTenants();}catch(e){alert(e.message);}}
 async function toggleTenant(uid,active){try{await adminApi('PUT','/admin/tenants/'+uid,{is_active:active});loadTenants();}catch(e){alert(e.message);}}
+async function deleteTenant(tid,name){
+  if(!confirm('PERMANENTLY DELETE tenant "'+name+'" and ALL their data (invoices, payments, clients, etc.)? This cannot be undone.')) return;
+  if(!confirm('Are you absolutely sure? This will delete ALL data for '+name+'.')) return;
+  try{
+    await adminApi('DELETE','/admin/tenants/'+tid);
+    loadTenants();
+    alert('Tenant '+name+' and all associated data deleted successfully.');
+  }catch(e){alert('Delete failed: '+e.message);}
+}
 async function exportTenant(tid,name){
   try{
     const r=await fetch(API+'/admin/tenants/'+tid+'/export',{credentials:'include',headers:{Authorization:'Bearer '+adminToken}});
