@@ -30,13 +30,20 @@ class PaymentCreate(BaseModel):
 async def get_payments(user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Payment).where(Payment.tenant_id == user["tenant_id"]).order_by(Payment.created_at.desc()))
     payments = [serialize_doc(p) for p in result.scalars().all()]
-    # Enrich with invoice_number for better reconciliation
+    # Enrich with invoice_number, currency and exchange_rate
     inv_ids = list({p["invoice_id"] for p in payments if p.get("invoice_id")})
     if inv_ids:
         inv_res = await db.execute(select(Invoice).where(Invoice.invoice_id.in_(inv_ids)))
-        inv_map = {inv.invoice_id: inv.invoice_number for inv in inv_res.scalars().all()}
+        inv_map = {inv.invoice_id: {
+            "invoice_number": inv.invoice_number,
+            "currency": inv.currency or "INR",
+            "exchange_rate": inv.exchange_rate,
+        } for inv in inv_res.scalars().all()}
         for p in payments:
-            p["invoice_number"] = inv_map.get(p.get("invoice_id"), "")
+            inv_data = inv_map.get(p.get("invoice_id"), {})
+            p["invoice_number"] = inv_data.get("invoice_number", "")
+            p["invoice_currency"] = inv_data.get("currency", "INR")
+            p["invoice_exchange_rate"] = inv_data.get("exchange_rate")
     return payments
 
 
@@ -83,12 +90,14 @@ async def get_payment(payment_id: str, user: dict = Depends(get_current_user), d
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
     data = serialize_doc(p)
-    # Enrich with invoice_number
+    # Enrich with invoice_number and currency
     if p.invoice_id:
         inv_res = await db.execute(select(Invoice).where(Invoice.invoice_id == p.invoice_id))
         inv = inv_res.scalar_one_or_none()
         if inv:
             data["invoice_number"] = inv.invoice_number
+            data["invoice_currency"] = inv.currency or "INR"
+            data["invoice_exchange_rate"] = inv.exchange_rate
     return data
 
 
