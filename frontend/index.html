@@ -2874,7 +2874,7 @@ async function loadPayments() {
       ? data.map(p=>{
           const cl=clientsCache.find(c=>c.client_id===p.client_id)||{};
           const waTpl=getWATemplate('payment');
-          const docForWA={invoice_number:p.invoice_number||p.reference_number||'',client_name:cl.name||p.client_name||'',total:p.amount,currency:'INR',client_id:p.client_id};
+          const docForWA={invoice_number:p.invoice_number||p.reference_number||'',client_name:cl.name||p.client_name||'',total:p.amount,currency:p.invoice_currency||'INR',client_id:p.client_id};
           const waMsg=fillWATemplate(waTpl,docForWA,biz,'Payment Receipt');
           const waNum=(getWAPrefix()+(cl.phone||'')).replace(/\D/g,'');
           const wa=cl.phone?`<a class="ab" style="background:#25d366;color:#fff;text-decoration:none;padding:3px 7px;border-radius:4px;font-size:.75rem" href="https://wa.me/${waNum}?text=${encodeURIComponent(waMsg)}" target="_blank" title="WhatsApp Receipt">📲</a>`:'';
@@ -2882,7 +2882,7 @@ async function loadPayments() {
           <td>${p.payment_date||'—'}</td>
           <td style="font-size:.78rem"><strong>${p.invoice_number||'—'}</strong></td>
           <td>${cl.name?`<span class="cl-link" onclick="openClientLedger('${p.client_id}')">${cl.name}</span>`:(p.client_name||'—')}</td>
-          <td><strong>${fmt(p.amount)}</strong></td>
+          <td><strong>${fmt(p.amount, p.invoice_currency||'INR')}</strong></td>
           <td>${p.payment_mode||'—'}</td>
           <td>${p.reference_number||'—'}</td>
           <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -3063,7 +3063,8 @@ async function previewPayment(payId){
   try{
     const [p,biz]=await Promise.all([api('GET','/payments/'+payId),api('GET','/business').catch(()=>({}))]); 
     const cl=clientsCache.find(c=>c.client_id===p.client_id)||{};
-    const amtFmt=fmt(p.amount||0,'INR');
+    const invCur=p.invoice_currency||'INR';
+    const amtFmt=fmt(p.amount||0,invCur);
     const html='<'+'html><'+'head><'+'style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:40px;color:#1e293b;margin:0}.hdr{background:linear-gradient(135deg,#1e40af,#0d9488);color:#fff;padding:24px;border-radius:8px;margin-bottom:24px}.title{font-size:22px;font-weight:800}.biz{font-size:13px;opacity:.85;margin-top:4px}.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9}.label{color:#6b7280;font-size:13px}.val{font-weight:600}.total{background:#f0fdf4;padding:14px;border-radius:8px;text-align:right;font-size:18px;font-weight:800;color:#16a34a;margin-top:16px}.badge{display:inline-block;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#16a34a;font-size:12px;font-weight:700;margin-top:8px}<'+'/style><'+'/head><'+'body>'
       +'<div class="hdr"><div class="title">Payment Receipt</div><div class="biz">'+(biz.business_name||'')+'</div></div>'
       +'<div class="row"><span class="label">Receipt #</span><span class="val">'+(p.payment_id||'').slice(-8).toUpperCase()+'</span></div>'
@@ -3072,7 +3073,7 @@ async function previewPayment(payId){
       +'<div class="row"><span class="label">Invoice #</span><span class="val">'+(p.invoice_number||p.reference_number||'—')+'</span></div>'
       +'<div class="row"><span class="label">Payment Mode</span><span class="val">'+(p.payment_mode||'—')+'</span></div>'
       +'<div class="row"><span class="label">Reference</span><span class="val">'+(p.reference_number||'—')+'</span></div>'
-      +'<div class="total">Amount Received<br>'+amtFmt+'</div>'
+      +'<div class="total">Amount Received<br>'+amtFmt+(invCur!=='INR'?'<div style="font-size:12px;font-weight:400;opacity:.8;margin-top:4px">Currency: '+invCur+'</div>':'')+'</div>'
       +'<div style="text-align:center;margin-top:16px"><span class="badge">&#10003; Payment Confirmed</span></div>'
       +'<'+'/body><'+'/html>';
     const blob=new Blob([html],{type:'text/html'});
