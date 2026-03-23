@@ -3767,7 +3767,7 @@ function _admRenderTenants() {
     const isPending = _admCurrentTab === 'pending';
     const actions = isPending
       ? `<button onclick="approveTenant('${t.user_id}',true)" style="background:#16a34a;color:#fff;border:none;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem;margin-right:.4rem">&#10003; Approve</button><button onclick="rejectTenant('${t.user_id}')" style="background:#fff;color:#dc2626;border:1.5px solid #dc2626;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem">&#10005; Reject</button>`
-      : `<button class="bsm bg2" onclick="toggleTenant('${t.user_id}',${!t.is_active})">${t.is_active?'Disable':'Enable'}</button> <button class="bsm bg2" onclick="exportTenant('${t.tenant_id}','${t.name}')">&#11015; Export</button> <button style="background:#fff;color:#dc2626;border:1.5px solid #dc2626;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem" onclick="deleteTenant('${t.tenant_id}','${t.name}')">&#128465; Delete</button>`;
+      : `<button class="bsm bg2" onclick="toggleTenant('${t.user_id}',${!t.is_active})">${t.is_active?'Disable':'Enable'}</button> <button class="bsm bg2" onclick="exportTenant('${t.tenant_id}','${t.name}')">&#11015; Export</button> <button style="background:#fff;color:#f59e0b;border:1.5px solid #f59e0b;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem" onclick="openResetPasswordModal(\'${t.user_id}\',\'${t.name}\')">&#128274; Reset Password</button> <button style="background:#fff;color:#dc2626;border:1.5px solid #dc2626;padding:.38rem .85rem;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8rem" onclick="deleteTenant(\'${t.tenant_id}\',\'${t.name}\')">&#128465; Delete</button>`;
     const rowBg = i % 2 === 0 ? (isPending ? '#fffbeb' : '#f8fafc') : '#fff';
     const extraCell = isPending
       ? `<td style="padding:.8rem 1rem">${demoCell}</td>`
@@ -3887,6 +3887,30 @@ async function exportTenant(tid,name){
     const b=await r.blob(); dlBlob(b,'tenant_'+name.replace(/\s+/g,'_')+'.xlsx');
   }catch(e){alert(e.message);}
 }
+function openResetPasswordModal(uid, name) {
+  document.getElementById('resetPwdUserId').value = uid;
+  document.getElementById('resetPwdTenantName').textContent = name;
+  document.getElementById('resetPwdInput').value = '';
+  document.getElementById('resetPwdConfirm').value = '';
+  document.getElementById('resetPwdError').textContent = '';
+  document.getElementById('resetPasswordModal').style.display = 'flex';
+}
+function closeResetPasswordModal() {
+  document.getElementById('resetPasswordModal').style.display = 'none';
+}
+async function submitResetPassword() {
+  const uid = document.getElementById('resetPwdUserId').value;
+  const pwd = document.getElementById('resetPwdInput').value.trim();
+  const confirm = document.getElementById('resetPwdConfirm').value.trim();
+  const errEl = document.getElementById('resetPwdError');
+  if (!pwd || pwd.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (pwd !== confirm) { errEl.textContent = 'Passwords do not match.'; return; }
+  try {
+    await adminApi('POST', '/admin/tenants/' + uid + '/reset-password', { new_password: pwd });
+    closeResetPasswordModal();
+    alert('Password reset successfully.');
+  } catch(e) { errEl.textContent = e.message || 'Failed to reset password.'; }
+}
 async function adminLogout(){
   try{await adminApi('POST','/admin/logout');}catch(e){}
   adminToken=null;
@@ -3895,6 +3919,28 @@ async function adminLogout(){
   document.getElementById('landing').style.display='block';
 }
 </script>
+  <!-- RESET PASSWORD MODAL -->
+  <div id="resetPasswordModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:14px;padding:2rem 2rem 1.5rem;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+      <h3 style="margin:0 0 .25rem;font-size:1.1rem;color:#0f172a">Reset Password</h3>
+      <p style="margin:0 0 1.2rem;font-size:.85rem;color:#64748b">Tenant: <strong id="resetPwdTenantName"></strong></p>
+      <input type="hidden" id="resetPwdUserId"/>
+      <div style="margin-bottom:.9rem">
+        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">New Password</label>
+        <input type="password" id="resetPwdInput" placeholder="Min. 6 characters" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.92rem;box-sizing:border-box"/>
+      </div>
+      <div style="margin-bottom:.9rem">
+        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Confirm Password</label>
+        <input type="password" id="resetPwdConfirm" placeholder="Re-enter password" style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.92rem;box-sizing:border-box"/>
+      </div>
+      <p id="resetPwdError" style="color:#dc2626;font-size:.82rem;min-height:1rem;margin:0 0 1rem"></p>
+      <div style="display:flex;gap:.75rem;justify-content:flex-end">
+        <button onclick="closeResetPasswordModal()" style="padding:.5rem 1.1rem;border:1.5px solid #d1d5db;background:#fff;border-radius:8px;cursor:pointer;font-weight:600;font-size:.88rem;color:#374151">Cancel</button>
+        <button onclick="submitResetPassword()" style="padding:.5rem 1.1rem;background:#f59e0b;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.88rem;color:#fff">Reset Password</button>
+      </div>
+    </div>
+  </div>
+
   <!-- REPORT DATE RANGE MODAL -->
   <div class="modal-overlay" id="reportDateModal" onclick="if(event.target===this)closeModal('reportDateModal')">
     <div class="modal-box" style="max-width:400px">
