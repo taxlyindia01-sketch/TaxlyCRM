@@ -244,6 +244,28 @@ async def export_tenant_database(tenant_id: str, admin: bool = Depends(check_adm
         headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
+class ResetPassword(BaseModel):
+    new_password: str
+
+
+@router.post("/tenants/{user_id}/reset-password")
+async def reset_tenant_password(user_id: str, reset_data: ResetPassword,
+                                 admin: bool = Depends(check_admin), db: AsyncSession = Depends(get_db)):
+    if not reset_data.new_password or len(reset_data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    import bcrypt
+    new_hash = bcrypt.hashpw(reset_data.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    user.password_hash = new_hash
+    await db.commit()
+    return {"message": "Password reset successfully"}
+
+
 @router.post("/logout")
 async def admin_logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     session_token = request.cookies.get("admin_session_token")
